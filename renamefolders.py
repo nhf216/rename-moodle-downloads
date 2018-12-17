@@ -20,11 +20,99 @@ SPACE = '~'
 IGNORE = set([".", "__"])
 SEP = "_"
 
+#Helper function for displaying text that doesn't wrap lines
+#in the Command Prompt
+#Assumes tabs are width 8 and there are 80 columns
+def display_format(strg, width = 80, twidth = 8):
+    #Split the string into words
+    split_strg = strg.split()
+    #Technical thing that helps with boundary conditions
+    split_strg.append("")
+    #Build a new string with line breaks/tabs
+    new_strg = "\t\t"
+    #At start, we're two tabs in
+    new_len = 2 * twidth
+    #Loop through the words
+    for i in range(len(split_strg) - 1):
+        #Append the next word
+        new_strg += split_strg[i]
+        #Update the length of the current line
+        new_len += len(split_strg[i]) + 1
+        #Check if next word would "wrap"
+        if new_len + len(split_strg[i + 1]) >= width:
+            #It would, so make a new line
+            new_strg += "\n\t\t"
+            new_len = 2 * twidth
+        else:
+            #It wouldn't, so make a space
+            new_strg += " "
+    #Return the new, formatted string
+    return new_strg
+
 #Display the help info for the program
 #Usage and details
 def display_help():
-    print("Usage: python3 renamefolders.py directory [options]")
-    #TODO options
+    print()
+    print("USAGE: python3 renamefolders.py directory [options]")
+    print()
+    print("\tdirectory:\n%s"%display_format("The directory to process"))
+    print()
+    print("OPTIONS:")
+    external_string = EXTERNAL_FILE_FLAGS[0] + " (" +\
+        ', '.join(EXTERNAL_FILE_FLAGS[1:]) + ") external_file"
+    print("\t%s\n%s"%(external_string, display_format(
+        "If given, copy the file "
+        "specified by external_file into the folder of submissions. "
+        "Useful if, e.g., you provided a module for them to use, and "
+        "their submitted code all imports your module. "
+        "Can be passed multiple times; each flag takes "
+        "only one argument.")))
+    print()
+    flatten_string = FLATTEN_FLAGS[0] + " (" +\
+        ', '.join(FLATTEN_FLAGS[1:]) + ")"
+    print("\t%s\n%s"%(flatten_string, display_format("If given, "
+        "remove the folder structure and put all submissions in a "
+        "single folder.")))
+    print()
+    student_string = STUDENTS_FLAGS[0] + " (" +\
+        ', '.join(STUDENTS_FLAGS[1:]) + ") students_file"
+    print("\t%s\n%s"%(student_string, display_format("If given, "
+        "use a file to ensure student names are treated accurately. "
+        "Can only be provided once.")))
+    print()
+    shorten_string = SHORTEN_EXTENSION_FLAGS[0] + " (" +\
+        ', '.join(SHORTEN_EXTENSION_FLAGS[1:]) + ") file_extension_string"
+    print("\t%s\n%s"%(shorten_string, display_format("If given, "
+        "files with the specified extension, e,g \".py\", are given "
+        "short names, typically just the surname of the student who "
+        "submitted them. Can be passed multiple times; each flag takes "
+        "only one argument. The -p flag can be used to gain further "
+        "control over this process.")))
+    print()
+    protect_string = PROTECT_PREFIX_FLAGS[0] + " (" +\
+        ', '.join(PROTECT_PREFIX_FLAGS[1:]) + ") prefix_string"
+    print("\t%s\n%s"%(protect_string, display_format("If given, "
+        "files with the specified prefix, e,g \"aa\", are NOT given "
+        "short names, even if the -e flag would apply. Use if, e.g., "
+        "students are likely to submit files you provided them, and "
+        "you don't want to rename those. "
+        "Can be passed multiple times; each flag takes "
+        "only one argument.")))
+    print()
+    zip_string = ZIP_FLAGS[0] + " (" + ', '.join(ZIP_FLAGS[1:]) + ")"
+    print("\t%s\n%s"%(zip_string, display_format("If given, extract "
+        "files from ZIP submissions")))
+    print()
+    verbose_string = VERBOSE_FLAGS[0] + " (" +\
+        ', '.join(VERBOSE_FLAGS[1:]) + ")"
+    print("\t%s\n%s"%(verbose_string, display_format("If given, "
+        "produce verbose output.")))
+    print()
+    help_string = HELP_FLAGS[0] + " (" +\
+        ', '.join(HELP_FLAGS[1:]) + ")"
+    print("\t%s\n%s"%(help_string, display_format("If given, display "
+        "this help page and exit.")))
+    print()
 
 #Class encapsulating a student
 class Student:
@@ -352,6 +440,7 @@ if __name__ == '__main__':
 
     #Get the list of folders
     dirs = []
+    dnames = set()
     s_list = []
     #Scan the specified folder for directories
     if verbose:
@@ -377,6 +466,9 @@ if __name__ == '__main__':
                     last = SPACE.join(sname[1:])
                     student = Student(first, last, first)
                     student_num = 0
+                    while student.get_id_string(student_num) in dnames:
+                        #Need to increase student_num
+                        student_num += 1
                 else:
                     #Check all possible parsings of the student's name
                     student = None
@@ -417,10 +509,15 @@ if __name__ == '__main__':
                             "corresponding student"%itm.name)
                         sys.exit(0)
                 #Keep track of the directory's name and its future name
-                dirs.append((itm.name, student.get_id_string(student_num)))
-                student.assign_folder(student.get_id_string(student_num))
+                new_name = student.get_id_string(student_num)
+                dirs.append((itm.name, new_name))
+                dnames.add(new_name)
+                student.assign_folder(new_name)
                 #Remember this student
                 s_list.append([student, student_num])
+                if verbose:
+                    print("Matching student %s to folder %s with number %d"%\
+                        (str(student), student.get_folder(), student_num))
                 #Unzip, if we want to do that
                 if unzip:
                     unzip_zips(folder + os.sep + itm.name, verbose)
@@ -457,9 +554,13 @@ if __name__ == '__main__':
                 else:
                     student = students[itm.name]
                 #Keep track of the directory's name
+                dnames.add(itm.name)
                 student.assign_folder(itm.name)
                 #Remember this student
                 s_list.append([student, student_num])
+                if verbose:
+                    print("Matching student %s to folder %s with number %d"%\
+                        (str(student), student.get_folder(), student_num))
                 #Unzip, if we want to do that
                 if unzip:
                     unzip_zips(folder + os.sep + itm.name, verbose)
