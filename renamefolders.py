@@ -573,7 +573,12 @@ if __name__ == '__main__':
                     print("File/directory %s tagged for moving"%in_itm.name)
             for move_file in move_files:
                 #Make the new name
-                new_name = s_folder + SEP + move_file.name
+                if student_num == 0:
+                    new_name = s_folder + SEP + move_file.name
+                else:
+                    new_name = student.last.replace(" ", SEP) +\
+                        str(student_num) + SEP + SEP +\
+                        student.first.replace(" ", SEP) + SEP + move_file.name
                 #Check if need to shorten filename
                 for ext in shorten_extensions:
                     if move_file.name[-len(ext):] == ext:
@@ -621,16 +626,37 @@ if __name__ == '__main__':
                             new_name[dot_index:]
                         if verbose:
                             print("Instead using name %s"%new_name)
-                new_name = folder + os.sep + new_name
-                #Move the file
-                os.rename(folder + os.sep + s_folder + os.sep +\
-                    move_file.name, new_name)
-                if verbose:
-                    print("Renamed file/directory %s to %s"%\
-                        (folder + os.sep + s_folder + os.sep +\
-                        move_file.name, new_name))
+                #Check if we should ignore the file
+                ignore = False
+                for ig in IGNORE:
+                    if move_file.name[:len(ig)] == ig:
+                        ignore = True
+                        break
+                if ignore:
+                    #Delete the thing
+                    if os.path.isfile(folder + os.sep + s_folder + os.sep +\
+                            move_file.name):
+                        os.remove(folder + os.sep + s_folder + os.sep +\
+                            move_file.name)
+                        if verbose:
+                            print("Deleted irrelevant file: %s"%move_file.name)
+                    else:
+                        shutil.rmtree(folder + os.sep + s_folder + os.sep +\
+                            move_file.name)
+                        if verbose:
+                            print("Deleted irrelevant directory: %s"%new_dirc)
+                else:
+                    #Prepare to move
+                    new_name = folder + os.sep + new_name
+                    #Move the file
+                    os.rename(folder + os.sep + s_folder + os.sep +\
+                        move_file.name, new_name)
+                    if verbose:
+                        print("Renamed file/directory %s to %s"%\
+                            (folder + os.sep + s_folder + os.sep +\
+                            move_file.name, new_name))
             #Remove the directory
-            os.rmdir(folder + os.sep + s_folder)
+            shutil.rmtree(folder + os.sep + s_folder)
             if verbose:
                 print("Removed directory %s"%s_folder)
 
