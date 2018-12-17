@@ -439,7 +439,7 @@ if __name__ == '__main__':
                 #Student's number
                 student_num = 0
                 if first != sname[1]:
-                    student_num = int(sname[len(first):])
+                    student_num = int(sname[1][len(first):])
                 #Last name
                 last = sname[0]
                 try_student = Student(first, last, first)
@@ -476,9 +476,85 @@ if __name__ == '__main__':
     if verbose:
         print("Done renaming")
 
+    #Folders prefixes
+    if flatten and len(shorten_extensions) > 0:
+        if verbose:
+            print()
+            print("Figuring out shortened names")
+        #List the folders
+        folder_list = [sn[0].get_folder() for sn in s_list]
+        #Sort the list of folders
+        folder_list.sort()
+        #Look for optimal prefixes
+        folder_prefixes = dict()
+        lnames = dict()
+        #First, group everybody by last name
+        i = 0
+        while i < len(folder_list):
+            fldr = folder_list[i]
+            #Look for people with the SAME name
+            j = i + 1
+            while j < len(folder_list) and\
+                    folder_list[j][:len(fldr)] == fldr:
+                j += 1
+            #Figure out the current last name
+            lname = fldr[:folder_list[i].find(SEP)]
+            if lname not in lnames:
+                lnames[lname] = []
+            #Create an entry, keeping track of the number of people
+            #with that name
+            lnames[lname].append((fldr, j - i))
+            if verbose:
+                print("Name %s; last name %s; %d people"%(fldr, lname, j - i))
+            #Advance to the next unique name
+            i = j
+        #Now, go through and find unique prefixes
+        for lname in lnames:
+            if verbose:
+                print("Now considering last name %s"%lname)
+            #Loop through the names with that last name
+            for i in range(len(lnames[lname])):
+                #Get the folder name and count,
+                #and the index after the last name
+                fldr = lnames[lname][i][0]
+                ct = lnames[lname][i][1]
+                idx = fldr.find(SEP)
+                #Extend the prefix until it's unique
+                while True:
+                    ok = True
+                    #What's the current prefix?
+                    name = fldr[:idx]
+                    #Check to see if it's unique?
+                    for j in range(len(lnames[lname])):
+                        if i != j and lnames[lname][j][0][:idx] == name:
+                            #It's not
+                            ok = False
+                            break
+                    if ok:
+                        if verbose:
+                            print("Found unique prefix %s"%name)
+                        #Prefix was unique
+                        #Let's roll with it
+                        folder_prefixes[fldr] = name
+                        #In case there were multiple people with the same name
+                        #Need to account for all of them
+                        for j in range(1, ct):
+                            folder_prefixes[fldr + str(j)] = name + str(j)
+                        if verbose:
+                            print("Updated %d entries"%ct)
+                        break
+                    else:
+                        #Try again with a longer prefix
+                        idx += 1
+        #Remove underscores from shortened names
+        for fldr in folder_prefixes:
+            folder_prefixes[fldr] = folder_prefixes[fldr].replace(SEP, "")
+            if verbose:
+                print("Prefix for %s changed to %s"%(fldr,\
+                    folder_prefixes[fldr]))
+
     #Flatten/Shorten/Exemption
     #This works even if you've already done the rest
-    #TODO same last name, different student
     if flatten:
         if verbose:
             print()
@@ -517,11 +593,8 @@ if __name__ == '__main__':
                                 break
                         if not protected:
                             #Do the rename
-                            if student_num == 0:
-                                new_name = student.last + ext
-                            else:
-                                new_name = student.last +\
-                                    str(student_num) + ext
+                            #Use the prefix created earlier
+                            new_name = folder_prefixes[s_folder] + ext
                             if verbose:
                                 print("File %s tagged for renaming to %s"%\
                                     (move_file.name, new_name))
